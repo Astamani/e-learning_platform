@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  INSTRUCTOR
+  ADMIN
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String?
+  email     String   @unique
+  password  String
+  bio             String?
+  profilePicture  String?
+  role      Role     @default(STUDENT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  courses           Course[]           @relation("InstructorCourses")
+  enrollments       Enrollment[]
+  lessonCompletions LessonCompletion[]
+  certificates      Certificate[]
+}
+
+model Course {
+  id           String   @id @default(uuid())
+  title        String
+  description  String
+  category     String
+  instructor   User     @relation("InstructorCourses", fields: [instructorId], references: [id])
+  instructorId String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  lessons      Lesson[]
+  enrollments  Enrollment[]
+  certificates Certificate[]
+
+  prerequisites     Course[]           @relation("CoursePrerequisites")
+  requiredFor       Course[]           @relation("CoursePrerequisites")
+  lessonCompletions LessonCompletion[]
+}
+
+model Lesson {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  videoUrl  String?
+  course    Course   @relation(fields: [courseId], references: [id])
+  courseId  String
+  createdAt DateTime @default(now())
+
+  completions LessonCompletion[]
+  
+  prerequisites Lesson[] @relation("LessonPrerequisites")
+  requiredFor   Lesson[] @relation("LessonPrerequisites")
+}
+
+model Enrollment {
+  id        String   @id @default(uuid())
+  student   User     @relation(fields: [studentId], references: [id])
+  studentId String
+  course    Course   @relation(fields: [courseId], references: [id])
+  courseId  String
+  progress  Int      @default(0)
+  completed Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([studentId, courseId]) // prevent duplicate enrollments
+}
+
+model LessonCompletion {
+  id          String   @id @default(uuid())
+  studentId   String
+  courseId    String
+  lessonId    String
+  completedAt DateTime @default(now())
+
+  student User   @relation(fields: [studentId], references: [id])
+  course  Course @relation(fields: [courseId], references: [id])
+  lesson  Lesson @relation(fields: [lessonId], references: [id])
+
+  @@unique([studentId, lessonId]) // one completion per lesson per student
+}
+
+model Certificate {
+  id        String   @id @default(uuid())
+  student   User     @relation(fields: [studentId], references: [id])
+  studentId String
+  course    Course   @relation(fields: [courseId], references: [id])
+  courseId  String
+  issuedAt  DateTime @default(now())
+
+  @@unique([studentId, courseId])
+}
